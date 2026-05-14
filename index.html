@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mastery Tracker - Elite OS v10</title>
+    
+    <link rel="icon" type="image/png" href="icon.png">
+    <link rel="apple-touch-icon" href="icon.png">
+    
+    <style>
+        :root {
+            --bg: #050506; --card: #111116; --primary: #7aa2f7; 
+            --success: #73daca; --danger: #f7768e; --text: #c0caf5;
+            --accent: #bb9af7; --border: #292e42;
+        }
+        body { 
+            font-family: 'Inter', system-ui, sans-serif; background: var(--bg); 
+            color: var(--text); margin: 0; padding: 20px; display: flex; justify-content: center;
+        }
+        .container { width: 100%; max-width: 1200px; display: grid; grid-template-columns: 1fr 340px; gap: 20px; }
+        
+        .card { 
+            background: var(--card); border: 1px solid var(--border); border-radius: 20px; 
+            padding: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        
+        h2 { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 2px; color: #565f89; margin-bottom: 20px; }
+        
+        /* Tabla de Hábitos */
+        .header-row {
+            display: grid; grid-template-columns: 1fr 90px 100px 100px; gap: 15px;
+            padding-bottom: 12px; border-bottom: 2px solid var(--border);
+            color: #565f89; font-size: 0.65rem; font-weight: bold; text-transform: uppercase;
+        }
+
+        .habit-row { 
+            display: grid; grid-template-columns: 1fr 90px 100px 100px; 
+            align-items: center; padding: 16px 0; border-bottom: 1px solid var(--border); gap: 15px;
+            position: relative;
+        }
+
+        .task-info { display: flex; align-items: center; gap: 10px; }
+        .delete-btn { 
+            color: var(--danger); cursor: pointer; font-size: 1.2rem; 
+            background: none; border: none; padding: 0; opacity: 0.3; transition: 0.2s;
+        }
+        .habit-row:hover .delete-btn { opacity: 1; }
+
+        .task-info .name { font-size: 0.9rem; font-weight: 600; display: block; margin-bottom: 6px; }
+        
+        .min-input { 
+            background: #1a1b26; border: 1px solid #414868; color: var(--success); 
+            width: 70px; padding: 10px; border-radius: 8px; text-align: center; font-weight: bold; outline: none;
+        }
+        
+        .progress-container { width: 100%; height: 6px; background: #24283b; border-radius: 10px; overflow: hidden; }
+        .progress-bar { height: 100%; background: linear-gradient(90deg, var(--accent), var(--primary)); transition: 0.8s ease; }
+
+        /* Calendario */
+        .calendar { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+        .day { 
+            aspect-ratio: 1; background: #1a1b26; border: 1px solid var(--border); 
+            border-radius: 6px; display: flex; align-items: center; justify-content: center;
+            font-size: 0.65rem; color: #565f89; position: relative;
+        }
+        .day.past::after { 
+            content: "✕"; color: var(--danger); position: absolute; font-size: 1rem; font-weight: 900;
+        }
+        .day.target { border: 1px solid var(--accent); color: var(--accent); box-shadow: 0 0 10px rgba(187, 154, 247, 0.2); }
+
+        .big-num { font-size: 2.8rem; font-weight: 800; color: var(--primary); line-height: 1; }
+        
+        /* Controles Meta */
+        .add-task-area {
+            display: flex; gap: 10px; margin-top: 20px; padding-top: 20px; border-top: 1px dashed var(--border);
+        }
+
+        input[type="text"], input[type="date"], input[type="number"] {
+            background: #1a1b26; border: 1px solid #414868; color: white; padding: 12px; border-radius: 10px; outline: none;
+        }
+        input:focus { border-color: var(--primary); }
+
+        button {
+            background: var(--accent); border: none; color: white; padding: 10px 20px; 
+            border-radius: 10px; cursor: pointer; font-weight: bold; transition: 0.2s;
+        }
+        button:hover { filter: brightness(1.2); }
+
+        .btn-add { background: var(--success); color: #050506; }
+
+        @media (max-width: 950px) { .container { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="left-panel">
+        <div class="card" style="margin-bottom: 20px;">
+            <h2>Meta Maestra</h2>
+            <div style="display: flex; gap: 10px;">
+                <input type="text" id="goalTitle" placeholder="Ej: 3.000 USD MENSUALES" style="flex:2;">
+                <input type="date" id="goalDate" style="flex:1;">
+                <button onclick="saveMeta()">FIJAR</button>
+            </div>
+            <p id="metaCountdown" style="font-size: 1.1rem; font-weight: 700; color: var(--accent); margin-top: 15px;"></p>
+        </div>
+
+        <div class="card">
+            <h2>Panel de Control</h2>
+            <div class="header-row">
+                <span>Tarea</span>
+                <span style="text-align:center">Hoy</span>
+                <span style="text-align:right">Mes</span>
+                <span style="text-align:right">Vitalicio</span>
+            </div>
+            <div id="habitsContainer"></div>
+
+            <div class="add-task-area">
+                <input type="text" id="newTaskInput" placeholder="Añadir nueva tarea..." style="flex:1;">
+                <button class="btn-add" onclick="addTask()">+</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="right-panel">
+        <div class="card" style="margin-bottom: 20px;">
+            <h2>Inversión Mensual</h2>
+            <div id="totalTime" class="big-num">0h 0m</div>
+            <p style="font-size: 0.75rem; color: #565f89; margin-top: 10px;">TIEMPO TOTAL ACUMULADO</p>
+        </div>
+
+        <div class="card">
+            <h2>Calendario de Meta</h2>
+            <div class="calendar" id="calendar"></div>
+            <p style="font-size: 0.7rem; color: #565f89; margin-top: 15px; line-height: 1.4;">
+                Haz que cada día cuente.
+            </p>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Configuración Inicial si no existe DB
+    const defaultHabits = [
+        "Ejercicio matutino", "Escribir mis metas", "Agradecimiento (10)", "Leer 45 minutos",
+        "Editar y subir video diario", "Roleplay de ventas", "Practicar Inglés", "Ejercicio nocturno"
+    ];
+
+    const getTodayKey = () => new Date().toISOString().split('T')[0];
+
+    let db = JSON.parse(localStorage.getItem('tracker_elite_v10')) || {
+        meta: { title: "Mi Meta", date: "" },
+        habitList: defaultHabits,
+        logs: {} 
+    };
+
+    function saveMeta() {
+        db.meta.title = document.getElementById('goalTitle').value;
+        db.meta.date = document.getElementById('goalDate').value;
+        sync();
+    }
+
+    // AÑADIR TAREA
+    function addTask() {
+        const input = document.getElementById('newTaskInput');
+        const name = input.value.trim();
+        if (name && !db.habitList.includes(name)) {
+            db.habitList.push(name);
+            input.value = '';
+            sync();
+        }
+    }
+
+    // QUITAR TAREA
+    function removeTask(name) {
+        if (confirm(`¿Eliminar "${name}" del panel diario?`)) {
+            db.habitList = db.habitList.filter(h => h !== name);
+            sync();
+        }
+    }
+
+    function logMinutes(taskName, minutes) {
+        const today = getTodayKey();
+        if (!db.logs[today]) db.logs[today] = {};
+        db.logs[today][taskName] = parseInt(minutes) || 0;
+        sync();
+    }
+
+    function sync() {
+        localStorage.setItem('tracker_elite_v10', JSON.stringify(db));
+        renderStats();
+    }
+
+    function formatTime(totalMins) {
+        const h = Math.floor(totalMins / 60);
+        const m = totalMins % 60;
+        return `${h}h ${m}m`;
+    }
+
+    function renderHabits() {
+        const container = document.getElementById('habitsContainer');
+        const today = getTodayKey();
+        const todayData = db.logs[today] || {};
+        const currentMonth = new Date().getMonth();
+        const currentYear = new Date().getFullYear();
+
+        container.innerHTML = '';
+        
+        db.habitList.forEach(name => {
+            let totalMinsMonth = 0;
+            let totalMinsLife = 0;
+            let daysActiveMonth = 0;
+            
+            Object.keys(db.logs).forEach(dateStr => {
+                const logDate = new Date(dateStr + "T00:00:00");
+                const mins = db.logs[dateStr][name] || 0;
+                totalMinsLife += mins;
+                if (logDate.getMonth() === currentMonth && logDate.getFullYear() === currentYear) {
+                    totalMinsMonth += mins;
+                    if (mins > 0) daysActiveMonth++;
+                }
+            });
+
+            const dayOfMonth = new Date().getDate();
+            const perc = Math.round((daysActiveMonth / dayOfMonth) * 100) || 0;
+            const currentVal = todayData[name] || "";
+
+            container.innerHTML += `
+                <div class="habit-row">
+                    <div class="task-info">
+                        <button class="delete-btn" onclick="removeTask('${name}')">×</button>
+                        <div style="flex:1">
+                            <span class="name">${name}</span>
+                            <div class="progress-container"><div class="progress-bar" style="width:${perc}%"></div></div>
+                        </div>
+                    </div>
+                    <div style="text-align: center">
+                        <input type="number" class="min-input" value="${currentVal}" oninput="logMinutes('${name}', this.value)" placeholder="0">
+                    </div>
+                    <div style="text-align: right; font-size: 0.85rem;">
+                        <span style="color:var(--success); font-weight:bold">${perc}%</span><br>
+                        <small style="color:#565f89">${formatTime(totalMinsMonth)}</small>
+                    </div>
+                    <div style="text-align: right; font-size: 0.85rem; border-left: 1px solid var(--border); padding-left: 10px;">
+                        <span style="color:var(--primary); font-weight:bold">${formatTime(totalMinsLife)}</span><br>
+                        <small style="color:#565f89">TOTAL</small>
+                    </div>
+                </div>
+            `;
+        });
+    }
+
+    function renderStats() {
+        const today = new Date();
+        const currentMonth = today.getMonth();
+        const currentYear = today.getFullYear();
+        let totalMinsMonthAll = 0;
+        
+        Object.keys(db.logs).forEach(dateStr => {
+            const logDate = new Date(dateStr + "T00:00:00");
+            if (logDate.getMonth() === currentMonth && logDate.getFullYear() === currentYear) {
+                Object.values(db.logs[dateStr]).forEach(m => totalMinsMonthAll += m);
+            }
+        });
+
+        document.getElementById('totalTime').innerText = formatTime(totalMinsMonthAll);
+
+        if(db.meta.date) {
+            const target = new Date(db.meta.date + "T00:00:00");
+            const diff = Math.ceil((target - today) / (1000 * 60 * 60 * 24));
+            document.getElementById('metaCountdown').innerText = `${db.meta.title} • Faltan ${diff} días`;
+            
+            const calGrid = document.getElementById('calendar');
+            calGrid.innerHTML = '';
+            const start = new Date(); start.setDate(today.getDate() - 14);
+
+            for(let i=0; i<28; i++) {
+                const cur = new Date(start); cur.setDate(start.getDate() + i);
+                const isPast = cur < new Date().setHours(0,0,0,0);
+                const isTarget = cur.toDateString() === target.toDateString();
+                calGrid.innerHTML += `<div class="day ${isPast ? 'past' : ''} ${isTarget ? 'target' : ''}">${cur.getDate()}</div>`;
+            }
+        }
+        renderHabits();
+    }
+
+    // Inicio
+    document.getElementById('goalTitle').value = db.meta.title;
+    document.getElementById('goalDate').value = db.meta.date;
+    renderStats();
+</script>
+
+</body>
+</html>
